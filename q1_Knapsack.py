@@ -44,7 +44,7 @@ def objective(individual, alpha):
             return 1, True
         return sum_value, True #TODO remember you wrote 1+ here
 
-def GA(capacity, items):
+def Knapsack(capacity, items):
     #hyperparameters
     populationSize = 300
     numEpochs = 1000
@@ -68,7 +68,7 @@ def GA(capacity, items):
 if __name__ == '__main__':
     if len(sys.argv) == 2:
         capacity, items = process_file(sys.argv[1])
-        GA(capacity, items)
+        Knapsack(capacity, items)
     else:
         print('You need to input the path to the knapsack file to run')
 
