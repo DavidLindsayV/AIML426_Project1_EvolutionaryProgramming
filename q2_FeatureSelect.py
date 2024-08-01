@@ -11,6 +11,7 @@ def process_file(folderpath):
     with open(namesfile, 'r') as file:
         firstline = True
         for line in file:
+            line = line.replace('\r', '')
             if firstline:
                 line = line.replace('.\n', '')
                 classes = line.split(',')
@@ -22,6 +23,7 @@ def process_file(folderpath):
     data = []
     with open(datafile, 'r') as file:
         for line in file:
+            line = line.replace('\r', '')
             line = line.split(',')
             linedict = {}
             if len(line) != len(featureNames) + 1:
