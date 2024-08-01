@@ -32,11 +32,11 @@ def objective(individual, items, capacity, alpha):
             sum_weights += items[index]['weight']
             sum_value += items[index]['value']
     
-    if sum_weights > capacity:
+    if sum_weights > capacity: #invalid
         if alpha == -1:
             return 0, False
         else:
-            return sum_value - (sum_weights - capacity)*alpha, False
+            return max(0, sum_value - (sum_weights - capacity)*alpha), False
     else:
         if sum_value == 0:
             return 1, True
@@ -68,7 +68,7 @@ def GA(capacity, items):
     populationSize = 100
     numEpochs = 500
     # alpha = 0.5
-    alpha = -1 #this means invalid solution = 0
+    alpha = 3 #this means invalid solution = 0
     mutation_rate = 0.2
     elitism =  0.05
 
@@ -97,6 +97,7 @@ def GA(capacity, items):
                 min_score = score
             scores.append((score, individual))
             sum_scores += score
+            # print(score)
         
         if best_score_this_epoch > best_feasible_score:
             best_feasible_score = best_score_this_epoch
@@ -109,6 +110,8 @@ def GA(capacity, items):
 
         best_feasible_scores.append(best_score_this_epoch)
         ave_scores.append(sum_scores/len(population))
+        print(sum_scores/len(population))
+        print(best_score_this_epoch)
 
         #Elitism
         elitist_individuals = heapq.nlargest(num_elitismed, scores, key=lambda t: t[0])
@@ -127,6 +130,7 @@ def GA(capacity, items):
             adjusted_score_sum = sum_scores #- min_score * len(population) + (0.000000001) * len(population)
             relative_fitness = adjusted_fitness / adjusted_score_sum
             fitness_values.append(relative_fitness)
+        # print(sum_scores)
 
         while len(newpopulation) < populationSize:
             # Rioulette selection based on cumulative probabilities
