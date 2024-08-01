@@ -65,12 +65,16 @@ def GA(capacity, items):
     numitems = len(items)
 
     #hyperparameters
-    populationSize = 100
-    numEpochs = 500
+    populationSize = 300
+    numEpochs = 1000
     # alpha = 0.5
-    alpha = 3 #this means invalid solution = 0
+    alpha = 5 # a -1 means invalid solution = 0
     mutation_rate = 0.2
     elitism =  0.05
+
+    valweights = []
+    for item in items:
+        valweights.append(item['value']/item['weight'])
 
     best_feasible_score = -sys.maxsize
     best_feasible_solution = -1
@@ -86,7 +90,7 @@ def GA(capacity, items):
         scores = []
         sum_scores = 0
         min_score = sys.maxsize
-        best_score_this_epoch = -sys.maxsize
+        best_score_this_epoch = 0
         best_indiv_this_epoch = None
         for individual in population:
             score, isfeasible = objective(individual, items, capacity, alpha)
@@ -110,8 +114,8 @@ def GA(capacity, items):
 
         best_feasible_scores.append(best_score_this_epoch)
         ave_scores.append(sum_scores/len(population))
-        print(sum_scores/len(population))
-        print(best_score_this_epoch)
+        # print(sum_scores/len(population))
+        # print(best_score_this_epoch)
 
         #Elitism
         elitist_individuals = heapq.nlargest(num_elitismed, scores, key=lambda t: t[0])
@@ -148,10 +152,11 @@ def GA(capacity, items):
 
             #Mutation
             if random() < mutation_rate: #mutate child 1
-                flipindex = randint(0, numitems - 1)
+                flipindex = choices([x for x in range(0, numitems)], weights=valweights, k=1)[0]
                 child1[flipindex] = abs(child1[flipindex] - 1) #flip from 0 to 1 and vice versa
             if random() < mutation_rate: #mutate child 2
-                flipindex = randint(0, numitems - 1)
+                # flipindex = randint(0, numitems - 1)
+                flipindex = choices([x for x in range(0, numitems)], weights=valweights, k=1)[0]
                 child2[flipindex] = abs(child2[flipindex] - 1) #flip from 0 to 1 and vice versa
 
             newpopulation.append(child1)
