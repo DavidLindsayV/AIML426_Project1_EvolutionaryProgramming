@@ -26,7 +26,7 @@ def process_file(filename):
         print("ERROR ERROR NUMBER OF ITEMS SPECIFIED DOESNT MATCH NUMBER OF ITEMS READ")
     return capacity, items    
 
-def objective(individual, alpha):
+def objective(individual):
     sum_weights = 0
     sum_value = 0
     for index, x in enumerate(individual):
@@ -44,10 +44,13 @@ def objective(individual, alpha):
             return 1, True
         return sum_value, True #TODO remember you wrote 1+ here
 
+alpha = -1
+
 def Knapsack(capacity, items):
     #hyperparameters
     populationSize = 300
     numEpochs = 1000
+    global alpha
     alpha = 5 # a -1 means invalid solution = 0
     mutation_rate = 0.2
     elitism =  0.05

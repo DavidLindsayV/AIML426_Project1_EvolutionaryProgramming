@@ -71,6 +71,7 @@ def evolve_population(population, numEpochs, alpha, objective, geneweights, muta
     ave_scores = []
 
     for epoch in range(numEpochs):
+        print("Epoch " + str(epoch) + " out of " +str(numEpochs))
         scores = []
         sum_scores = 0
         min_score = sys.maxsize
@@ -79,7 +80,7 @@ def evolve_population(population, numEpochs, alpha, objective, geneweights, muta
 
         #Calculate scores
         for individual in population:
-            score, isfeasible = objective(individual, alpha)
+            score, isfeasible = objective(individual)
             if score > best_score_this_epoch and isfeasible:
                 best_score_this_epoch = score
                 best_indiv_this_epoch = individual
