@@ -1,7 +1,11 @@
+import math
 import sys
 import os
+from turtle import pd
 
 import numpy as np
+from pandas import DataFrame
+import pandas as pd
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
@@ -17,6 +21,7 @@ def process_file(folderpath):
 
     featureNames = []
     classes = []
+    iscontinuous = {}
     with open(namesfile, 'r') as file:
         firstline = True
         for line in file:
@@ -28,6 +33,7 @@ def process_file(folderpath):
             else:     
                 line = line.split(': ')
                 featureNames.append(line[0])
+                iscontinuous[line[0]] = (bool(line[1].replace('\n', '')))
 
     data = []
     with open(datafile, 'r') as file:
@@ -42,13 +48,67 @@ def process_file(folderpath):
             linedict['class'] = line[-1].replace('\n', '')
             data.append(linedict)
             
-    return classes, featureNames, data   
+    return classes, featureNames, data, iscontinuous 
 
-def filter_objective():
-    #TODO
-    x = 1
+
+def calculate_conditional_entropy(df, feature_column, target_column):
+    total_samples = len(df)
+    feature_values_counts = df[feature_column].value_counts().to_dict()
+    conditional_entropy = 0.0
+    for feature_value, feature_count in feature_values_counts.items():
+        # Step 5: Filter the dataframe where the feature column equals the current feature_value
+        subset_df = df[df[feature_column] == feature_value]
+        
+        # Step 6: Get the unique values and their counts for the target column Y in the subset
+        target_values_counts = subset_df[target_column].value_counts().to_dict()
+
+        # Step 7: Calculate the probability of the current feature value
+        P_X = feature_count / total_samples
+        
+        # Step 8: Initialize entropy for this subset (conditional on the current feature value)
+        subset_entropy = 0.0
+
+        # Step 9: Loop over each unique value of the target column Y
+        for target_value, target_count in target_values_counts.items():
+            # Step 10: Calculate the conditional probability P(Y|X)
+            P_Y_given_X = target_count / feature_count
+
+            # Step 11: Update the subset entropy using the formula -P(Y|X) * log2(P(Y|X))
+            subset_entropy -= P_Y_given_X * np.log2(P_Y_given_X)
+
+        # Step 12: Update the overall conditional entropy by weighting the subset entropy by P(X)
+        conditional_entropy += P_X * subset_entropy
+
+    # Step 13: Return the final conditional entropy value
+    return conditional_entropy
+
+
+def filter_objective(individual):
+    global datadf
+    features = select_features(individual, datadf)
+    if features.shape(1) == 0:
+        return 0.0000000001, True
+    
+    X_train, X_test, y_train, y_test = train_test_split(features, class_values, test_size=0.3, random_state=42)
+    class_entropy = 0
+    for cls in classes:
+        py = y_train.count(cls) / len(y_train)
+        class_entropy += - py * math.log2(py)
+    class_entropy = -class_entropy
+
+
+    
+    return None
 
 accuracyDict = {}
+
+def select_features(individual, dataframe):
+    datalen = dataframe.shape[0]
+    trimmedDF = dataframe.copy()
+    for i in range(len(individual)):
+        if individual[i] == 0:
+            trimmedDF.drop(columns=featurenames[i])
+    return trimmedDF
 
 def select_features(individual, feature_values, class_values):
     features = None
@@ -61,6 +121,7 @@ def select_features(individual, feature_values, class_values):
             else:
                 for index in range(datalen):
                     features[index].append(feature_values[index][i]) 
+    # z = pd.DataFrame(features, feat_names)
     return features
 
 def wrapper_objective(individual): #use KNN as the wrapper
@@ -100,7 +161,11 @@ def WrapperGA():
     print("Best solution = " + str(best_feasible_solution))
     plot_scores(best_feasible_scores, ave_scores)
 
+datadf = None 
+
 def FilterGA():
+    global datadf
+    datadf = DataFrame(data)
     #hyperparameters
     populationSize = 100
     numEpochs = 40
@@ -113,8 +178,11 @@ def FilterGA():
 
     # population = [[randint(0, 1) for x in range(numitems)] for _ in range(populationSize)]
     population = [[0 for x in range(len(featurenames))] for _ in range(populationSize)]
-
-    class_entropy = entropy(np.bincount(class_values), base=2)
+    
+    #Discretize the data
+    for featurename in featurenames:
+        if iscontinuous[featurename]:
+            datadf[featurename] = pd.qcut(datadf[featurename], q=5)
 
     best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = evolve_population(population, numEpochs, alpha, filter_objective, geneweights, mutation_rate, populationSize, elitism)
 
@@ -124,7 +192,7 @@ def FilterGA():
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:
-        classes, featurenames, data = process_file(sys.argv[1])
+        classes, featurenames, data, iscontinuous = process_file(sys.argv[1])
         feature_values = []
         class_values = []
         for entry in data:
