@@ -51,26 +51,49 @@ def process_file(folderpath):
     return classes, featureNames, data, iscontinuous 
 
 
-def calculate_conditional_entropy(df, feature_column, target_column):
+def calculate_conditional_entropy(df, feature_columns, target_column):
+    """
+    Calculate the conditional entropy H(Y|X1, X2, ..., Xm) of the target variable Y given multiple features.
+
+    Parameters:
+    df (pandas.DataFrame): The dataset containing the features and target.
+    feature_columns (list): A list of feature column names X1, X2, ..., Xm.
+    target_column (str): The name of the target column Y.
+
+    Returns:
+    float: The conditional entropy H(Y|X1, X2, ..., Xm).
+    """
+    # Step 1: Calculate the total number of samples
     total_samples = len(df)
-    feature_values_counts = df[feature_column].value_counts().to_dict()
+
+    # Step 2: Get the unique combinations of feature values and their counts
+    feature_combinations_counts = df.groupby(feature_columns, observed=False).size().to_dict()
+    # Step 3: Initialize the conditional entropy to zero
     conditional_entropy = 0.0
-    for feature_value, feature_count in feature_values_counts.items():
-        # Step 5: Filter the dataframe where the feature column equals the current feature_value
-        subset_df = df[df[feature_column] == feature_value]
+
+    # Step 4: Loop over each unique combination of feature values
+    for feature_values, feature_count in feature_combinations_counts.items():
+        if not feature_values is list: 
+            feature_values = [feature_values]
+
+        # Step 5: Filter the dataframe for rows with the current combination of feature values
+        subset_df = df
+
+        for col, val in zip(feature_columns, feature_values):
+            subset_df = subset_df[subset_df[col] == val]
         
         # Step 6: Get the unique values and their counts for the target column Y in the subset
         target_values_counts = subset_df[target_column].value_counts().to_dict()
 
-        # Step 7: Calculate the probability of the current feature value
+        # Step 7: Calculate the probability of the current combination of feature values
         P_X = feature_count / total_samples
         
-        # Step 8: Initialize entropy for this subset (conditional on the current feature value)
+        # Step 8: Initialize entropy for this subset (conditional on the current feature values)
         subset_entropy = 0.0
 
         # Step 9: Loop over each unique value of the target column Y
         for target_value, target_count in target_values_counts.items():
-            # Step 10: Calculate the conditional probability P(Y|X)
+            # Step 10: Calculate the conditional probability P(Y|X1, X2, ..., Xm)
             P_Y_given_X = target_count / feature_count
 
             # Step 11: Update the subset entropy using the formula -P(Y|X) * log2(P(Y|X))
@@ -82,33 +105,36 @@ def calculate_conditional_entropy(df, feature_column, target_column):
     # Step 13: Return the final conditional entropy value
     return conditional_entropy
 
+igDict = {}
+class_entropy = 0
 
 def filter_objective(individual):
+    global class_entropy
+    global igDict
+    if str(individual) in igDict.keys():
+        return igDict[str(individual)], True
+    
     global datadf
-    features = select_features(individual, datadf)
-    if features.shape(1) == 0:
+    selected_feat_names = select_feature_df(individual, datadf)
+    if len(selected_feat_names) == 0:
         return 0.0000000001, True
-    
-    X_train, X_test, y_train, y_test = train_test_split(features, class_values, test_size=0.3, random_state=42)
-    class_entropy = 0
-    for cls in classes:
-        py = y_train.count(cls) / len(y_train)
-        class_entropy += - py * math.log2(py)
-    class_entropy = -class_entropy
 
+    H_Y_given_feats = calculate_conditional_entropy(datadf, selected_feat_names, 'class')
 
-    
-    return None
+    information_gain = class_entropy - H_Y_given_feats
+    # print(information_gain)
+
+    igDict[str(individual)] = information_gain
+    return information_gain, True
 
 accuracyDict = {}
 
-def select_features(individual, dataframe):
-    datalen = dataframe.shape[0]
-    trimmedDF = dataframe.copy()
+def select_feature_df(individual, dataframe):
+    features = []
     for i in range(len(individual)):
-        if individual[i] == 0:
-            trimmedDF.drop(columns=featurenames[i])
-    return trimmedDF
+        if individual[i] == 1:
+            features.append(featurenames[i])
+    return features
 
 def select_features(individual, feature_values, class_values):
     features = None
@@ -145,7 +171,6 @@ def WrapperGA():
     #hyperparameters
     populationSize = 100
     numEpochs = 40
-    alpha = 5 # a -1 means invalid solution = 0
     mutation_rate = 0.2
     elitism =  0.05
     geneweights = []
@@ -155,7 +180,7 @@ def WrapperGA():
     # population = [[randint(0, 1) for x in range(numitems)] for _ in range(populationSize)]
     population = [[0 for x in range(len(featurenames))] for _ in range(populationSize)]
 
-    best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = evolve_population(population, numEpochs, alpha, wrapper_objective, geneweights, mutation_rate, populationSize, elitism)
+    best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = evolve_population(population, numEpochs, wrapper_objective, geneweights, mutation_rate, populationSize, elitism)
 
     print("Best score = " + str(best_feasible_score))
     print("Best solution = " + str(best_feasible_solution))
@@ -168,8 +193,7 @@ def FilterGA():
     datadf = DataFrame(data)
     #hyperparameters
     populationSize = 100
-    numEpochs = 40
-    alpha = 5 # a -1 means invalid solution = 0
+    numEpochs = 7
     mutation_rate = 0.2
     elitism =  0.05
     geneweights = []
@@ -184,14 +208,21 @@ def FilterGA():
         if iscontinuous[featurename]:
             datadf[featurename] = pd.qcut(datadf[featurename], q=5)
 
-    best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = evolve_population(population, numEpochs, alpha, filter_objective, geneweights, mutation_rate, populationSize, elitism)
+    #calculate class entropy
+    global class_entropy
+    class_entropy = 0
+    for cls in classes:
+        py = class_values.count(cls) / len(class_values)
+        class_entropy += - py * math.log2(py)
+
+    best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = evolve_population(population, numEpochs, filter_objective, geneweights, mutation_rate, populationSize, elitism)
 
     print("Best score = " + str(best_feasible_score))
     print("Best solution = " + str(best_feasible_solution))
     plot_scores(best_feasible_scores, ave_scores)
 
 if __name__ == '__main__':
-    if len(sys.argv) == 2:
+    if len(sys.argv) == 3:
         classes, featurenames, data, iscontinuous = process_file(sys.argv[1])
         feature_values = []
         class_values = []
@@ -200,21 +231,18 @@ if __name__ == '__main__':
             class_value = entry['class']
             class_values.append(class_value)
             feature_values.append(feature_vals)
-        
-        # print(class_values)
-        # print(feature_values)
-        #normalise features
-        # feature_values = np.array(feature_values)
-        scaler = MinMaxScaler()
-        # Fit and transform the features
-        feature_values = scaler.fit_transform(feature_values)
 
-        # print(feature_values)
+        if sys.argv[2] == 'W':
+            #scale the features to be in the range 0, 1
+            scaler = MinMaxScaler()
+            # Fit and transform the features
+            feature_values = scaler.fit_transform(feature_values)
+            WrapperGA()
+        elif sys.argv[2] == 'F':
+            FilterGA()
 
-        FilterGA()
-        # WrapperGA()
     else:
-        print('You need to input the path to the folder the GA is to run feature selection on')
+        print('You need to input the path to the folder the GA is to run feature selection on, and then whether to use wrapper-based GA (W) or filter-based GA (F)')
 
 #TODO
 # - check this works for discrete features too

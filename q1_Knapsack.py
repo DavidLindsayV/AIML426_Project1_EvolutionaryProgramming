@@ -61,7 +61,7 @@ def Knapsack(capacity, items):
     # population = [[randint(0, 1) for x in range(numitems)] for _ in range(populationSize)]
     population = [[0 for x in range(len(items))] for _ in range(populationSize)]
 
-    best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = evolve_population(population, numEpochs, alpha, objective, geneweights, mutation_rate, populationSize, elitism)
+    best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = evolve_population(population, numEpochs, objective, geneweights, mutation_rate, populationSize, elitism)
 
     print("Best score = " + str(best_feasible_score))
     print("Best solution = " + str(best_feasible_solution))
