@@ -14,6 +14,24 @@ from sklearn.model_selection import train_test_split
 
 from GAfuncs import evolve_population, plot_scores  # evolve_population, plot_scores
 
+def plot_fitness(avg_fitness, min_fitness):
+    # Create a range of epochs
+    epoch_range = range(1, len(avg_fitness) + 1)
+
+    # Plot the accuracies
+    plt.figure(figsize=(10, 5))
+    plt.plot(epoch_range, min_fitness, label='Best fitness')
+    plt.plot(epoch_range, avg_fitness, label='Average fitness')
+
+    # Add labels and title
+    plt.xlabel('Epochs')
+    plt.ylabel('Fitness (log)')
+    plt.title('Fitness over Epochs')
+    plt.yscale('log')
+    plt.legend()
+
+    # Show the plot
+    plt.show()
 
 def protectedDiv(left, right):
     if right == 0 or right == 0.0:
@@ -40,7 +58,7 @@ def generate_primitive_set():
     pset.addPrimitive(math.cos, 1)
     pset.addPrimitive(if_positive, 3)
     pset.renameArguments(ARG0='x') #this is the input terminal
-    pset.addEphemeralConstant("rand101", partial(random.randint, -1, 1))
+    pset.addEphemeralConstant("rand101", partial(random.randint, -5, 5))
     return pset
 
 
@@ -108,8 +126,24 @@ def SymbolicRegression():
     # print(log)
     # print("hof")
     # print(hof)
-    return pop, log, hof
+    test_cases = generate_random_inputs(num_test_cases)
+    for indiv in hof.items:
+        # func = toolbox.compile(expr=indiv)
+        print(indiv)
+        print("MSE over " + str(num_test_cases) + " test cases = " +  str(calcMSE(indiv, test_cases)[0]))
 
+    print("Actual function: ")
+    print("if_positive(x, add(add(mul(2, x), mul(x, x)), 3), protectedDiv(1, add(x, sin(x))))")
+
+    plot_fitness(log.chapters["fitness"].select("avg"), log.chapters["fitness"].select("min"))
+
+
+
+def target_function(val):
+    if val <= 0:
+        return 2 * val + val * val + 3.0
+    else:
+        return 1.0 / val + math.sin(val)
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
