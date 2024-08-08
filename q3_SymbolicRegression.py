@@ -1,27 +1,33 @@
+from functools import partial
 import math
-from random import randint, random, choices
+import random
 import sys
 from matplotlib import pyplot as plt
 import numpy as np
 import time
 import heapq
-from deap import gp, operator
+import operator
+from deap import gp, creator, base, tools, algorithms
+from scipy.stats import mstats
 
 from sklearn.model_selection import train_test_split
 
-from GAfuncs import evolve_population, plot_scores #evolve_population, plot_scores   
+from GAfuncs import evolve_population, plot_scores  # evolve_population, plot_scores
+
 
 def protectedDiv(left, right):
-    try:
+    if right == 0 or right == 0.0:
+        return 1.0
+    else:
         return left / right
-    except ZeroDivisionError:
-        return 1
-    
+
+
 def if_positive(val, left, right):
-    if val > 0:
+    if val > 0.0:
         return left
     else:
         return right
+
 
 def generate_primitive_set():
     pset = gp.PrimitiveSet("MAIN", 1)
@@ -31,34 +37,83 @@ def generate_primitive_set():
     pset.addPrimitive(protectedDiv, 2)
     pset.addPrimitive(operator.neg, 1)
     pset.addPrimitive(math.sin, 1)
+    pset.addPrimitive(math.cos, 1)
     pset.addPrimitive(if_positive, 3)
-    #TODO add constants
+    pset.renameArguments(ARG0='x') #this is the input terminal
+    pset.addEphemeralConstant("rand101", partial(random.randint, -1, 1))
+    return pset
 
 
-def generate_train_test_data(n_test_cases):
-    X = np.random.uniform(-100, 100, n_test_cases)
-    y = []
-    for val in X:
-        if val <= 0:
-            y.append(2*val + val*val + 3.0)
-        else:
-            y.append(1/val + math.sin(val))
-    
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+def target_function(val):
+    if val <= 0:
+        return 2 * val + val * val + 3.0
+    else:
+        return 1.0 / val + math.sin(val)
 
-    #TODO calculate MSE from GP to train/test data
 
-def objective():
-    myOutput = 0
+def generate_random_inputs(n):
+    return np.random.uniform(-100.0, 100.0, n)
 
 
 def SymbolicRegression():
-    x = 1 #TODO
+    num_train_cases = 100 #100 data inputs generated for evaluation
+    num_test_cases = 100 
 
-if __name__ == '__main__':
+    pset = generate_primitive_set()
+
+    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+    creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin)
+
+    toolbox = base.Toolbox()
+    toolbox.register("expr", gp.genHalfAndHalf, pset=pset, min_=1, max_=2)
+    toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+    toolbox.register("compile", gp.compile, pset=pset)
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
+    def calcMSE(individual, points):
+        # Transform the tree expression in a callable function
+        func = toolbox.compile(expr=individual)
+        # Evaluate the mean squared error between the expression and the real function
+        sqerrors = ((func(x) - target_function(x)) ** 2 for x in points)
+        return (math.fsum(sqerrors) / len(points),)
+
+    toolbox.register("evaluate", calcMSE, points=generate_random_inputs(num_train_cases))
+    toolbox.register("select", tools.selTournament, tournsize=3)
+    toolbox.register("mate", gp.cxOnePoint)
+    toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
+    toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
+
+    toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
+    toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
+
+    random.seed(123)
+    pop = toolbox.population(n=300)
+    hof = tools.HallOfFame(1)
+
+    stats_fit = tools.Statistics(lambda ind: ind.fitness.values)
+    stats_size = tools.Statistics(len)
+    mstats = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
+    mstats.register("avg", np.mean)
+    mstats.register("std", np.std)
+    mstats.register("min", np.min)
+    mstats.register("max", np.max)
+
+    pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.1, 40, stats=mstats,
+                                   halloffame=hof, verbose=True)
+
+    # print("pop")
+    # print(pop)
+    # print("log")
+    # print(log)
+    # print("hof")
+    # print(hof)
+    return pop, log, hof
+
+
+if __name__ == "__main__":
     if len(sys.argv) == 1:
-        generate_train_test_data()
-        # SymbolicRegression(capacity, items)
-        #TODO train GP for sybmolic regression
+        SymbolicRegression()
+        # TODO train GP for sybmolic regression
     else:
-        print('Too many CMD arguments')
+        print("Too many CMD arguments")
