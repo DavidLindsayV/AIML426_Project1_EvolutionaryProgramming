@@ -1,3 +1,4 @@
+import datetime
 from functools import partial
 import math
 import random
@@ -9,9 +10,27 @@ import time
 import heapq
 import operator
 from deap import gp, creator, base, tools, algorithms
+import pandas as pd
 from scipy.stats import mstats
 import os
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+import array
+import random
+import json
+
+import numpy
+
+from math import sqrt
+
+from deap import algorithms
+from deap import base
+from deap import benchmarks
+from deap.benchmarks.tools import diversity, convergence, hypervolume
+from deap import creator
+from deap import tools
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import MinMaxScaler
 
 from GAfuncs import evolve_population, plot_scores  # evolve_population, plot_scores
 
@@ -136,85 +155,120 @@ def process_file(folderpath):
                 linedict['class'] = line[-1].replace('\n', '')
                 data.append(linedict)
 
-    return classes, featureNames, data, iscontinuous, discreteOptions
+    #Make arrays of all the feature values and class values so you can make a dataframe
+    feature_values = []
+    class_values = []
+    for entry in data:
+        feature_vals = [v for k, v in entry.items() if k != 'class']
+        class_value = entry['class']
+        class_values.append(class_value)
+        feature_values.append(feature_vals)
+    
+    df = pd.DataFrame(feature_values)
+    numerical_cols = df.select_dtypes(include=['float64', 'int64']).columns
+    categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+    numerical_features = df[numerical_cols]
+    categorical_features = pd.get_dummies(df, columns=categorical_cols) #perform one-hot encoding on categorical data
+    scaler = MinMaxScaler() #use the minmaxscaler to scale all the features in the range 0, 1
+    scaled_numerical_features = scaler.fit_transform(numerical_features)
+    scaled_numerical_df = pd.DataFrame(scaled_numerical_features, columns=numerical_cols)
+    feature_values = pd.concat([scaled_numerical_df, categorical_features.reset_index(drop=True)], axis=1).to_numpy()
 
-#    This file is part of DEAP.
-#
-#    DEAP is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU Lesser General Public License as
-#    published by the Free Software Foundation, either version 3 of
-#    the License, or (at your option) any later version.
-#
-#    DEAP is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-#    GNU Lesser General Public License for more details.
-#
-#    You should have received a copy of the GNU Lesser General Public
-#    License along with DEAP. If not, see <http://www.gnu.org/licenses/>.
+    return classes, featureNames, data, iscontinuous, discreteOptions, class_values, feature_values
 
-import array
-import random
-import json
 
-import numpy
+def fitnessFunction(individual): #The fitness function with 2 fitnesses
+    accuracy = wrapper_objective(individual)
+    class_percentage = individual.count(1)/len(individual)
+    return accuracy, class_percentage
 
-from math import sqrt
+accuracyDict = {}
 
-from deap import algorithms
-from deap import base
-from deap import benchmarks
-from deap.benchmarks.tools import diversity, convergence, hypervolume
-from deap import creator
-from deap import tools
+def wrapper_objective(individual): #use KNN as the wrapper
+    if str(individual) in accuracyDict.keys():
+        return accuracyDict[str(individual)]
+    k = 3
 
-creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
-creator.create("Individual", array.array, typecode='d', fitness=creator.FitnessMin)
+    features = select_features(individual, feature_values, class_values)
+    if features is None: #if there are no features
+        return 0.0000000001
 
-toolbox = base.Toolbox()
+    X_train, X_test, y_train, y_test = train_test_split(features, class_values, test_size=0.3, random_state=42)
+    knn = KNeighborsClassifier(n_neighbors=k)
+    knn.fit(X_train, y_train)
+    y_pred = knn.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    accuracyLoss = (1.0 - accuracy)
+    accuracyDict[str(individual)]  = accuracyLoss
+    return accuracyLoss
 
-# Problem definition
-# Functions zdt1, zdt2, zdt3, zdt6 have bounds [0, 1]
-BOUND_LOW, BOUND_UP = 0.0, 1.0
+def select_features(individual, feature_values, class_values):
+    features = None
+    datalen = len(class_values)
+    for i in range(len(individual)):
+        if individual[i] != 0 and individual[i] != 1:
+            print("ERROR")
+            print(individual)
 
-# Functions zdt4 has bounds x1 = [0, 1], xn = [-5, 5], with n = 2, ..., 10
-# BOUND_LOW, BOUND_UP = [0.0] + [-5.0]*9, [1.0] + [5.0]*9
+        if individual[i] == 1:
+            if features is None:
+                features = [[x] for x in feature_values[:,i]]
+            else:
+                for index in range(datalen):
+                    features[index].append(feature_values[index][i]) 
+    # z = pd.DataFrame(features, feat_names)
+    return features
 
-# Functions zdt1, zdt2, zdt3 have 30 dimensions, zdt4 and zdt6 have 10
-NDIM = 30
+toolbox = None
 
-def uniform(low, up, size=None):
-    try:
-        return [random.uniform(a, b) for a, b in zip(low, up)]
-    except TypeError:
-        return [random.uniform(a, b) for a, b in zip([low] * size, [up] * size)]
+def make_toolbox():
+    creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
+    creator.create("Individual", list, fitness=creator.FitnessMin)
 
-toolbox.register("attr_float", uniform, BOUND_LOW, BOUND_UP, NDIM)
-toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.attr_float)
-toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+    NDIM = len(feature_values[0])
 
-toolbox.register("evaluate", benchmarks.zdt1)
-toolbox.register("mate", tools.cxSimulatedBinaryBounded, low=BOUND_LOW, up=BOUND_UP, eta=20.0)
-toolbox.register("mutate", tools.mutPolynomialBounded, low=BOUND_LOW, up=BOUND_UP, eta=20.0, indpb=1.0/NDIM)
-toolbox.register("select", tools.selNSGA2)
+    global toolbox
+    toolbox = base.Toolbox()
+
+    toolbox.register("attr_bool", random.randint, 0, 1)
+    toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_bool, n=NDIM)
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
+    toolbox.register("evaluate", fitnessFunction)
+    toolbox.register("mate", tools.cxTwoPoint)
+
+    def mutate_flip_bit(individual, indpb):
+        """Flip the bit of the individual with probability indpb."""
+        for i in range(len(individual)):
+            if random.random() < indpb:
+                individual[i] = 1 if individual[i] == 0 else 0
+        return individual,
+
+
+    toolbox.register("mutate", mutate_flip_bit, indpb=1.0/NDIM)
+    toolbox.register("select", tools.selNSGA2)
 
 def main(seed=None):
     random.seed(seed)
 
-    NGEN = 250
-    MU = 100
-    CXPB = 0.9
+    make_toolbox()
+
+    global toolbox
+
+    num_generations = 20 #250
+    populationCount = 100
+    crossover_prob = 0.9
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
-    # stats.register("avg", numpy.mean, axis=0)
-    # stats.register("std", numpy.std, axis=0)
+    stats.register("avg", numpy.mean, axis=0)
+    stats.register("std", numpy.std, axis=0)
     stats.register("min", numpy.min, axis=0)
     stats.register("max", numpy.max, axis=0)
 
     logbook = tools.Logbook()
     logbook.header = "gen", "evals", "std", "min", "avg", "max"
 
-    pop = toolbox.population(n=MU)
+    pop = toolbox.population(populationCount)
 
     # Evaluate the individuals with an invalid fitness
     invalid_ind = [ind for ind in pop if not ind.fitness.valid]
@@ -226,18 +280,14 @@ def main(seed=None):
     # no actual selection is done
     pop = toolbox.select(pop, len(pop))
 
-    record = stats.compile(pop)
-    logbook.record(gen=0, evals=len(invalid_ind), **record)
-    print(logbook.stream)
-
     # Begin the generational process
-    for gen in range(1, NGEN):
+    for gen in range(1, num_generations):
         # Vary the population
         offspring = tools.selTournamentDCD(pop, len(pop))
         offspring = [toolbox.clone(ind) for ind in offspring]
 
         for ind1, ind2 in zip(offspring[::2], offspring[1::2]):
-            if random.random() <= CXPB:
+            if random.random() <= crossover_prob:
                 toolbox.mate(ind1, ind2)
 
             toolbox.mutate(ind1)
@@ -250,42 +300,46 @@ def main(seed=None):
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
 
-        # Select the next generation population
-        pop = toolbox.select(pop + offspring, MU)
         record = stats.compile(pop)
-        logbook.record(gen=gen, evals=len(invalid_ind), **record)
+        logbook.record(gen=gen, evals=len(pop), **record)
         print(logbook.stream)
 
-    print("Final population hypervolume is %f" % hypervolume(pop, [11.0, 11.0]))
+        # Select the next generation population
+        pop = toolbox.select(pop + offspring, populationCount)
 
     return pop, logbook
 
+def display_NSGA2_results(pop, stats):
+    pop.sort(key=lambda x: x.fitness.values)
+
+    # Plot the Pareto front
+    front = tools.sortNondominated(pop, len(pop), first_front_only=True)[0]
+
+    obj1 = [fitnessFunction(ind)[0] for ind in front]
+    obj2 = [fitnessFunction(ind)[1] for ind in front]
+    front_objectives = list(zip(obj1, obj2))
+    
+    print("Best accuracy: " + str(max(obj1)))
+    print("Best class count: " + str(max(obj2)))
+
+    reference_point = np.array([1.1, 1.1])
+    hv = hypervolume(front, reference_point)
+    print(f'Hypervolume: {hv}')
+
+    print("Pareto front: " + str(front))
+
+    plt.scatter(obj1, obj2)
+    plt.title("Pareto Front")
+    plt.xlabel("Accuracy Loss (percentage of incorrect identifications)")
+    plt.ylabel("Percentage of features selected")
+    plt.show()
+
 if __name__ == "__main__":
     if len(sys.argv) == 2:
-        classes, featureNames, data, iscontinuous, discreteOptions = process_file(sys.argv[1])
-        # with open("pareto_front/zdt1_front.json") as optimal_front_data:
-        #     optimal_front = json.load(optimal_front_data)
-        # Use 500 of the 1000 points in the json file
-        # optimal_front = sorted(optimal_front[i] for i in range(0, len(optimal_front), 2))
-
-        # pop, stats = main()
-        # pop.sort(key=lambda x: x.fitness.values)
-
-        # print(stats)
-        # print("Convergence: ", convergence(pop, optimal_front))
-        # print("Diversity: ", diversity(pop, optimal_front[0], optimal_front[-1]))
-
-        # import matplotlib.pyplot as plt
-        # import numpy
-
-        # front = numpy.array([ind.fitness.values for ind in pop])
-        # optimal_front = numpy.array(optimal_front)
-        # plt.scatter(optimal_front[:,0], optimal_front[:,1], c="r")
-        # plt.scatter(front[:,0], front[:,1], c="b")
-        # plt.axis("tight")
-        # plt.show()
+        classes, featureNames, data, iscontinuous, discreteOptions, class_values, feature_values = process_file(sys.argv[1])
+        starttime = datetime.datetime.now()
+        pop, stats = main()
+        print("Time taken: " + str(datetime.datetime.now() - starttime))
+        display_NSGA2_results(pop, stats)
     else:
         print("Need another CMD argument, the path to the folder containing data to perform NSGA2 on")
-
-
-#TODO make this work with both Clean1 input data type and musk input data type

@@ -232,11 +232,14 @@ if __name__ == '__main__':
             class_values.append(class_value)
             feature_values.append(feature_vals)
 
+        print(feature_values)
+
         if sys.argv[2] == 'W':
             #scale the features to be in the range 0, 1
             scaler = MinMaxScaler()
             # Fit and transform the features
             feature_values = scaler.fit_transform(feature_values)
+            print(type(feature_values))
             WrapperGA()
         elif sys.argv[2] == 'F':
             FilterGA()
