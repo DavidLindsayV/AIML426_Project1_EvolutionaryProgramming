@@ -137,14 +137,6 @@ def SymbolicRegression():
 
     plot_fitness(log.chapters["fitness"].select("avg"), log.chapters["fitness"].select("min"))
 
-
-
-def target_function(val):
-    if val <= 0:
-        return 2 * val + val * val + 3.0
-    else:
-        return 1.0 / val + math.sin(val)
-
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         SymbolicRegression()
