@@ -133,7 +133,7 @@ def SymbolicRegression():
         print("MSE over " + str(num_test_cases) + " test cases = " +  str(calcMSE(indiv, test_cases)[0]))
 
     print("Actual function: ")
-    print("if_positive(x, add(add(mul(2, x), mul(x, x)), 3), protectedDiv(1, add(x, sin(x))))")
+    print("if_positive(x, add(add(mul(2, x), mul(x, x)), 3), add(protectedDiv(1.0, x), sin(x)))")
 
     plot_fitness(log.chapters["fitness"].select("avg"), log.chapters["fitness"].select("min"))
 

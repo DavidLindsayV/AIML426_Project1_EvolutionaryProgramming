@@ -14,25 +14,6 @@ from sklearn.model_selection import train_test_split
 
 from GAfuncs import evolve_population, plot_scores  # evolve_population, plot_scores
 
-def plot_fitness(avg_fitness, min_fitness):
-    # Create a range of epochs
-    epoch_range = range(1, len(avg_fitness) + 1)
-
-    # Plot the accuracies
-    plt.figure(figsize=(10, 5))
-    plt.plot(epoch_range, min_fitness, label='Best fitness')
-    plt.plot(epoch_range, avg_fitness, label='Average fitness')
-
-    # Add labels and title
-    plt.xlabel('Epochs')
-    plt.ylabel('Fitness (log)')
-    plt.title('Fitness over Epochs')
-    plt.yscale('log')
-    plt.legend()
-
-    # Show the plot
-    plt.show()
-
 def protectedDiv(left, right):
     if right == 0 or right == 0.0:
         return 1.0
@@ -71,9 +52,6 @@ def SymbolicRegression():
     toolbox.register("compile", gp.compile, pset=pset)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-    # def makeSpecies(n):
-    #     return [toolbox.population(n), toolbox.population(n)]
-    # toolbox.register("species", makeSpecies)
 
     def calcMSE(individuals):
         indiv1 = individuals[0]
@@ -96,32 +74,31 @@ def SymbolicRegression():
     toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
 
     def get_best(population):
-        return sorted(population, key=lambda ind: ind.fitness.values, reverse=True)[:1]
+        best_fitness = sys.maxsize
+        best_ind = None
+        for ind in population:
+            if ind.fitness.values[0] < best_fitness:
+                best_ind = ind
+                best_fitness = ind.fitness.values[0]
+        return best_ind
 
     toolbox.register("get_best", get_best)
 
 
     random.seed(123)
 
-    stats_fit = tools.Statistics(lambda ind: ind.fitness.values)
-    stats_size = tools.Statistics(len)
-    mstats = tools.MultiStatistics(fitness=stats_fit, size=stats_size)
-    mstats.register("avg", np.mean)
-    mstats.register("std", np.std)
-    mstats.register("min", np.min)
-    mstats.register("max", np.max)
+    species, representatives, mses = CoopEA()
 
-    species, representatives = CoopEA()
-
-    test_cases = np.random.uniform(-100.0, 100.0, num_test_cases)
     # func = toolbox.compile(expr=indiv)
-    print(representatives)
+    print("When less than 0: " + str(representatives[0]))
+    print("When greater than 0: " + str(representatives[1]))
     print("MSE over " + str(num_test_cases) + " test cases = " +  str(calcMSE(representatives)[0]))
 
     print("Actual function: ")
-    print("if_positive(x, add(add(mul(2, x), mul(x, x)), 3), protectedDiv(1, add(x, sin(x))))")
+    print("Less than 0: add(add(mul(2, x), mul(x, x)), 3)")
+    print("Greater than 0: add(protectedDiv(1.0, x), sin(x))")
 
-    # plot_fitness(log.chapters["fitness"].select("avg"), log.chapters["fitness"].select("min"))
+    plot_MSE(mses)
 
 toolbox = None
 
@@ -152,7 +129,7 @@ def plot_MSE(MSE):
 def CoopEA():
     global toolbox
     populationSize = 300
-    numEpochs = 20
+    numEpochs = 40
     crossoverProb = 0.6
     mutationProb = 1.0
 
@@ -164,34 +141,33 @@ def CoopEA():
     mses = []
 
     for epoch in range(numEpochs):
+        print("Epoch " + str(epoch))
         # Initialize a container for the next generation representatives
         next_repr = [None] * len(species)
-        for i, s in enumerate(species):
+        for speciesIndex, s in enumerate(species):
             # Vary the species individuals
             s = algorithms.varAnd(s, toolbox, crossoverProb, mutationProb)
         
             # Get the representatives excluding the current species
             r = [None, None]
-            for j in range(len(r)):
-                if j != i:
+            for j in range(len(representatives)):
+                if j != speciesIndex:
                     r[j] = representatives[j]
 
             for ind in s:
                 # Evaluate and set the individual fitness
-                r[i] = ind 
-                ind.fitness.values = toolbox.evaluate([ind] + r)
+                r[speciesIndex] = ind 
+                ind.fitness.values = toolbox.evaluate(r)
 
             # Select the individuals
-            species[i] = toolbox.select(s, len(s))  # Tournament selection
-            next_repr[i] = toolbox.get_best(s)[0]   # Best selection
+            species[speciesIndex] = toolbox.select(s, len(s))  # Tournament selection
+            next_repr[speciesIndex] = toolbox.get_best(s)   # Best selection
 
         representatives = next_repr
         mses.append(toolbox.evaluate(representatives))
-    
+        print("Representatives MSE: " + str(mses[-1]))
 
-    plot_MSE(mses)
-    
-    return species, representatives
+    return species, representatives, mses
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
