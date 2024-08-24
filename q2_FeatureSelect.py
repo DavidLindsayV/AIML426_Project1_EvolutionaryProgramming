@@ -186,7 +186,7 @@ def WrapperGA():
     print("Best solution = " + str(best_feasible_solution))
     plot_scores(best_feasible_scores, ave_scores)
 
-datadf = None 
+datadf = None
 
 def FilterGA():
     global datadf
