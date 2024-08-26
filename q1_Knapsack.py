@@ -59,7 +59,7 @@ def Knapsack(file_capacity, file_items, seed):
     numEpochs = 100
     global alpha
     alpha = 5 # a -1 means invalid solution = 0
-    mutation_rate = 0.5 #0.2
+    mutation_rate = 0.5 
     elitism =  0.05
     geneweights = []
     for item in items:

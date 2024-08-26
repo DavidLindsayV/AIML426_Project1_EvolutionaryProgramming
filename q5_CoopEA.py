@@ -35,7 +35,7 @@ def generate_primitive_set():
     return pset
 
 
-def SymbolicRegression():
+def CoopEA(seed):
     num_train_cases = 100 #100 data inputs generated for evaluation
     num_test_cases = 100 
 
@@ -85,9 +85,9 @@ def SymbolicRegression():
     toolbox.register("get_best", get_best)
 
 
-    random.seed(123)
+    random.seed(seed)
 
-    species, representatives, mses = CoopEA()
+    species, representatives, mses = evolvePopulation()
 
     # func = toolbox.compile(expr=indiv)
     print("When less than 0: " + str(representatives[0]))
@@ -126,7 +126,7 @@ def plot_MSE(MSE):
     # Show the plot
     plt.show()
 
-def CoopEA():
+def evolvePopulation():
     global toolbox
     populationSize = 300
     numEpochs = 40
@@ -171,6 +171,7 @@ def CoopEA():
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        SymbolicRegression()
+        random_seed = 100
+        SymbolicRegression(random_seed)
     else:
         print('You need no extra cmd arguments')

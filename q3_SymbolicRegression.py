@@ -73,7 +73,10 @@ def generate_random_inputs(n):
     return np.random.uniform(-100.0, 100.0, n)
 
 
-def SymbolicRegression():
+def SymbolicRegression(seed):
+    global random_seed
+    random_seed = seed
+
     num_train_cases = 100 #100 data inputs generated for evaluation
     num_test_cases = 100 
 
@@ -85,7 +88,7 @@ def SymbolicRegression():
     toolbox = base.Toolbox()
     toolbox.register("expr", gp.genHalfAndHalf, pset=pset, min_=1, max_=2)
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
-    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+    # toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("compile", gp.compile, pset=pset)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -105,7 +108,7 @@ def SymbolicRegression():
     toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
     toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
 
-    random.seed(123)
+    random.seed(random_seed)
     pop = toolbox.population(n=300)
     hof = tools.HallOfFame(1)
 
@@ -137,9 +140,12 @@ def SymbolicRegression():
 
     plot_fitness(log.chapters["fitness"].select("avg"), log.chapters["fitness"].select("min"))
 
+global random_seed
+
 if __name__ == "__main__":
     if len(sys.argv) == 1:
-        SymbolicRegression()
+        random_seed = 100
+        SymbolicRegression(random_seed)
         # TODO train GP for sybmolic regression
     else:
         print("Too many CMD arguments")

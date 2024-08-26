@@ -248,7 +248,7 @@ def make_toolbox():
     toolbox.register("mutate", mutate_flip_bit, indpb=1.0/NDIM)
     toolbox.register("select", tools.selNSGA2)
 
-def main(seed=None):
+def main(seed):
     random.seed(seed)
 
     make_toolbox()

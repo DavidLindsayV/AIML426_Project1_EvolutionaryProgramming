@@ -1,8 +1,10 @@
+from datetime import datetime
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
 import q1_Knapsack
+import q2_FeatureSelect
 
 
 def make_table(data, column_labels, row_labels):
@@ -81,6 +83,61 @@ def q1table():
     else:
         print('You need to input the path to the knapsack file to run')
 
+def q2table():
+    if len(sys.argv) == 2:
+        classes, featurenames, data, iscontinuous, class_values, feature_values = q2_FeatureSelect.process_file(sys.argv[1])
+        q2_FeatureSelect.set_global_variables(classes, featurenames, data, iscontinuous, class_values, feature_values)
+
+        # if sys.argv[2] == 'W':
+        q2_FeatureSelect.scaleFeatureValues()
+
+        data = []
+        classifier_data = []
+
+        seeds = [100, 200, 300, 400, 500]
+        for seed in seeds:
+            starttime = datetime.now()
+            best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = q2_FeatureSelect.WrapperGA(seed)
+            classifier_wrapper = q2_FeatureSelect.wrapper_objective(best_feasible_solution)[0]
+            print("Wrapper run finished - score = " + str(best_feasible_score))
+            wrappertime = round((datetime.now() - starttime).total_seconds(), 1)
+            starttime = datetime.now()
+            best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = q2_FeatureSelect.FilterGA(seed)
+            classifier_filter = q2_FeatureSelect.wrapper_objective(best_feasible_solution)[0]
+            print("Filter run finished - score = " + str(best_feasible_score))
+            filtertime = round((datetime.now() - starttime).total_seconds(), 1)
+            data.append([wrappertime, filtertime])
+            classifier_data.append([classifier_wrapper, classifier_filter])
+        
+        column_labels = ["WrapperGA Time", "FilterGA Time"]
+        row_labels = ['', '', '', '', '', 'Mean', 'Std']
+
+        wrappertime = [row[0] for row in data]
+        filtertime = [row[1] for row in data]
+        data.append([np.mean(wrappertime), np.mean(filtertime)])
+        data.append([np.std(wrappertime), np.std(filtertime)])
+
+        make_table(data, column_labels, row_labels)
+
+        
+        column_labels = ["WrapperGA", "FilterGA"]
+        row_labels = ['', '', '', '', '', 'Mean', 'Std']
+
+        wrapper = [row[0] for row in classifier_data]
+        filter = [row[1] for row in classifier_data]
+        classifier_data.append([np.mean(wrapper), np.mean(filter)])
+        classifier_data.append([np.std(wrapper), np.std(filter)])
+
+        make_table(classifier_data, column_labels, row_labels)
+
+
+        plt.show()
+
+    else:
+        print('You need to input the path to the folder the GA is to run feature selection on')
+
+
 
 if __name__ == '__main__':
-    q1table()
+    # q1table()
+    q2table()

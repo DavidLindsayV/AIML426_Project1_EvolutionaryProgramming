@@ -48,6 +48,12 @@ def make_new_population(population, numgenes, num_elitismed, scores, sum_scores,
         child1 = parent1[0:crossoverPoint] + parent2[crossoverPoint:]
         child2 = parent2[0:crossoverPoint] + parent1[crossoverPoint:]
 
+        #2 point crossover
+        # point1 = randint(1, len(parent1) - 2)
+        # point2 = randint(point1 + 1, len(parent1) - 1)
+        # child1 = parent1[:point1] + parent2[point1:point2] + parent1[point2:]
+        # child2 = parent2[:point1] + parent1[point1:point2] + parent2[point2:]
+
         #Mutation
         if random() < mutation_rate: #mutate child 1
             flipindex = choices([x for x in range(0, numgenes)], weights=geneweights, k=1)[0]
