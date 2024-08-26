@@ -70,8 +70,19 @@ def target_function(val):
 
 
 def generate_random_inputs(n):
+    global random_seed
+    np.random.seed(random_seed)
     return np.random.uniform(-100.0, 100.0, n)
 
+global toolbox
+
+def calcMSE(individual, points):
+    global toolbox
+    # Transform the tree expression in a callable function
+    func = toolbox.compile(expr=individual)
+    # Evaluate the mean squared error between the expression and the real function
+    sqerrors = ((func(x) - target_function(x)) ** 2 for x in points)
+    return (math.fsum(sqerrors) / len(points),)
 
 def SymbolicRegression(seed):
     global random_seed
@@ -79,12 +90,18 @@ def SymbolicRegression(seed):
 
     num_train_cases = 100 #100 data inputs generated for evaluation
     num_test_cases = 100 
+    max_depth = 17
+    populationSize = 300
+    crossoverProb = 0.5
+    mutationProb = 0.1
+    numEpochs = 40
 
     pset = generate_primitive_set()
 
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin)
 
+    global toolbox
     toolbox = base.Toolbox()
     toolbox.register("expr", gp.genHalfAndHalf, pset=pset, min_=1, max_=2)
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
@@ -92,24 +109,17 @@ def SymbolicRegression(seed):
     toolbox.register("compile", gp.compile, pset=pset)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-    def calcMSE(individual, points):
-        # Transform the tree expression in a callable function
-        func = toolbox.compile(expr=individual)
-        # Evaluate the mean squared error between the expression and the real function
-        sqerrors = ((func(x) - target_function(x)) ** 2 for x in points)
-        return (math.fsum(sqerrors) / len(points),)
-
     toolbox.register("evaluate", calcMSE, points=generate_random_inputs(num_train_cases))
     toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", gp.cxOnePoint)
     toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
     toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
 
-    toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
-    toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
+    toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=max_depth))
+    toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=max_depth))
 
     random.seed(random_seed)
-    pop = toolbox.population(n=300)
+    pop = toolbox.population(n=populationSize)
     hof = tools.HallOfFame(1)
 
     stats_fit = tools.Statistics(lambda ind: ind.fitness.values)
@@ -120,32 +130,27 @@ def SymbolicRegression(seed):
     mstats.register("min", np.min)
     mstats.register("max", np.max)
 
-    pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.1, 40, stats=mstats,
+    pop, log = algorithms.eaSimple(pop, toolbox, crossoverProb, mutationProb, numEpochs, stats=mstats,
                                    halloffame=hof, verbose=True)
 
-    # print("pop")
-    # print(pop)
-    # print("log")
-    # print(log)
-    # print("hof")
-    # print(hof)
-    test_cases = generate_random_inputs(num_test_cases)
-    for indiv in hof.items:
-        # func = toolbox.compile(expr=indiv)
-        print(indiv)
-        print("MSE over " + str(num_test_cases) + " test cases = " +  str(calcMSE(indiv, test_cases)[0]))
-
-    print("Actual function: ")
-    print("if_positive(x, add(add(mul(2, x), mul(x, x)), 3), add(protectedDiv(1.0, x), sin(x)))")
-
-    plot_fitness(log.chapters["fitness"].select("avg"), log.chapters["fitness"].select("min"))
+    return pop, log, hof
 
 global random_seed
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         random_seed = 100
-        SymbolicRegression(random_seed)
-        # TODO train GP for sybmolic regression
+        num_test_cases = 100
+        pop, log, hof = SymbolicRegression(random_seed)
+
+        test_cases = generate_random_inputs(num_test_cases)
+        for indiv in hof.items:
+            print(indiv)
+            print("MSE over " + str(num_test_cases) + " test cases = " +  str(calcMSE(indiv, test_cases)[0]))
+
+        print("Actual function: ")
+        print("if_positive(x, add(add(mul(2, x), mul(x, x)), 3), add(protectedDiv(1.0, x), sin(x)))")
+
+        plot_fitness(log.chapters["fitness"].select("avg"), log.chapters["fitness"].select("min"))
     else:
         print("Too many CMD arguments")

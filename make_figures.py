@@ -5,6 +5,7 @@ import numpy as np
 
 import q1_Knapsack
 import q2_FeatureSelect
+import q3_SymbolicRegression
 
 
 def make_table(data, column_labels, row_labels):
@@ -136,8 +137,35 @@ def q2table():
     else:
         print('You need to input the path to the folder the GA is to run feature selection on')
 
+def q3table():
+    if len(sys.argv) == 1:
 
+        data = []
+
+        seeds = [100, 200, 300]
+
+        for seed in seeds:
+            pop, log, hof = q3_SymbolicRegression.SymbolicRegression(seed)
+            for indiv in hof.items:
+                fitness = round(q3_SymbolicRegression.calcMSE(indiv, q3_SymbolicRegression.generate_random_inputs(100))[0], 2)
+                num_nodes = len(indiv)
+                print(indiv)
+            data.append([fitness, num_nodes])
+        
+        column_labels = ["Fitness", "Program Size"]
+        row_labels = ['', '', '', 'Mean', 'Std']
+
+        fitness = [row[0] for row in data]
+        num_nodes = [row[1] for row in data]
+        data.append([round(np.mean(fitness), 2), round(np.mean(num_nodes), 2)])
+        data.append([round(np.std(fitness), 2), round(np.std(num_nodes), 2)])
+
+        make_table(data, column_labels, row_labels)
+        plt.show()
+    else:
+        print('You don\'t need cmd arguments')
 
 if __name__ == '__main__':
     # q1table()
-    q2table()
+    # q2table()
+    q3table()
