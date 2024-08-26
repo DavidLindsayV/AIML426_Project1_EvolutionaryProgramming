@@ -62,7 +62,7 @@ def make_new_population(population, numgenes, num_elitismed, scores, sum_scores,
 
     return newpopulation
 
-def evolve_population(population, numEpochs, objective, geneweights, mutation_rate, populationSize, elitism):
+def evolve_population(population, numEpochs, objective, geneweights, mutation_rate, populationSize, elitism, seed):
     numgenes = len(population[0])
     best_feasible_score = -sys.maxsize
     best_feasible_solution = -1

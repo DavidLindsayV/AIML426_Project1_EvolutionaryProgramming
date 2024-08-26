@@ -45,33 +45,44 @@ def objective(individual):
         return sum_value, True #TODO remember you wrote 1+ here
 
 alpha = -1
+global capacity
+global items
 
-def Knapsack(capacity, items):
+def Knapsack(file_capacity, file_items, seed):
+    global capacity
+    capacity = file_capacity
+    global items
+    items = file_items
+
     #hyperparameters
     populationSize = 300
-    numEpochs = 1000
+    numEpochs = 100
     global alpha
     alpha = 5 # a -1 means invalid solution = 0
-    mutation_rate = 0.2
+    mutation_rate = 0.5 #0.2
     elitism =  0.05
     geneweights = []
     for item in items:
         geneweights.append(item['value']/item['weight'])
 
+
     # population = [[randint(0, 1) for x in range(numitems)] for _ in range(populationSize)]
     population = [[0 for x in range(len(items))] for _ in range(populationSize)]
 
-    best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = evolve_population(population, numEpochs, objective, geneweights, mutation_rate, populationSize, elitism)
+    best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = evolve_population(population, numEpochs, objective, geneweights, mutation_rate, populationSize, elitism, seed)
 
-    print("Best score = " + str(best_feasible_score))
-    print("Best solution = " + str(best_feasible_solution))
-    plot_scores(best_feasible_scores, ave_scores)
-
+    return best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:
+        random_seed = 100
         capacity, items = process_file(sys.argv[1])
-        Knapsack(capacity, items)
+        best_feasible_score, best_feasible_solution, best_feasible_scores, ave_scores = Knapsack(capacity, items, random_seed)
+
+        print("Best score = " + str(best_feasible_score))
+        print("Best solution = " + str(best_feasible_solution))
+        plot_scores(best_feasible_scores, ave_scores)
+
     else:
         print('You need to input the path to the knapsack file to run')
 
