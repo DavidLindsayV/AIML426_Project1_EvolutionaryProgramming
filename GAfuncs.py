@@ -1,5 +1,6 @@
 import heapq
-from random import choices, randint, random
+import random
+from random import choices, randint
 import matplotlib.pyplot as plt
 import sys
 
@@ -55,10 +56,10 @@ def make_new_population(population, numgenes, num_elitismed, scores, sum_scores,
         # child2 = parent2[:point1] + parent1[point1:point2] + parent2[point2:]
 
         #Mutation
-        if random() < mutation_rate: #mutate child 1
+        if random.random() < mutation_rate: #mutate child 1
             flipindex = choices([x for x in range(0, numgenes)], weights=geneweights, k=1)[0]
             child1[flipindex] = abs(child1[flipindex] - 1) #flip from 0 to 1 and vice versa
-        if random() < mutation_rate: #mutate child 2
+        if random.random() < mutation_rate: #mutate child 2
             # flipindex = randint(0, numitems - 1)
             flipindex = choices([x for x in range(0, numgenes)], weights=geneweights, k=1)[0]
             child2[flipindex] = abs(child2[flipindex] - 1) #flip from 0 to 1 and vice versa
@@ -69,7 +70,8 @@ def make_new_population(population, numgenes, num_elitismed, scores, sum_scores,
     return newpopulation
 
 def evolve_population(population, numEpochs, objective, geneweights, mutation_rate, populationSize, elitism, seed):
-    numgenes = len(population[0])
+    random.seed(seed)
+    numgenes = len(population[0])  
     best_feasible_score = -sys.maxsize
     best_feasible_solution = -1
     num_elitismed = int(populationSize * elitism)

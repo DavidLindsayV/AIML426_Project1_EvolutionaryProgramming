@@ -42,7 +42,7 @@ def objective(individual):
     else:
         if sum_value == 0:
             return 1, True
-        return sum_value, True #TODO remember you wrote 1+ here
+        return sum_value, True 
 
 alpha = -1
 global capacity
@@ -85,9 +85,3 @@ if __name__ == '__main__':
 
     else:
         print('You need to input the path to the knapsack file to run')
-
-#TODO:
-# - check if the accuracy being 1513 instead of 1514 matters
-#   - if it does, look at advanced knapsack techniques specified in the slide
-# - cut down on epoch number
-# - updated README

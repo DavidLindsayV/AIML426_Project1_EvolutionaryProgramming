@@ -9,6 +9,7 @@ import q1_Knapsack
 import q2_FeatureSelect
 import q3_SymbolicRegression
 import q4_NSGA2
+import q5_CoopEA
 
 
 def make_table(data, column_labels, row_labels):
@@ -217,8 +218,48 @@ def q4table():
     else:
         print("Need another CMD argument, the path to the folder containing data to perform NSGA2 on")
 
+def q5table():
+    if len(sys.argv) == 1:
+        
+        data = []
+        plot_data = []
+
+        seeds = [100, 200, 300, 400, 500]
+
+        for seed in seeds:
+            species, representatives, mses  = q5_CoopEA.CoopEA(seed)
+            data.append([q5_CoopEA.calcMSE(representatives, 100)[0]])
+            print("Function when <= 0: " + str(representatives[0]))
+            print("Function when > 0: " + str(representatives[1]))
+            plot_data.append(mses)
+
+        mse = [row[0] for row in data]
+        data.append([round(np.mean(mse), 2)])
+        data.append([round(np.std(mse), 2)])
+
+        column_labels = ["MSE"]
+        row_labels = ['', '', '', '', '', 'Mean', 'Std']
+
+        make_table(data, column_labels, row_labels)
+
+        graph_data = []
+        for j in range(len(plot_data[0])):
+            graph_data.append(0)
+            for i in range(len(plot_data)):
+                graph_data[j] = graph_data[j] + plot_data[i][j][0]
+            graph_data[j] = graph_data[j]/len(plot_data)
+
+        plot_data = [graph_data]
+        make_plot(plot_data, ["Average MSE"], "Epochs", "MSE", "Coop EA Convergence Graph")
+
+        plt.show()
+
+    else:
+        print('You need no extra cmd arguments')
+
 if __name__ == '__main__':
     # q1table()
-    # q2table()
+    q2table()
     # q3table()
-    q4table()
+    # q4table()
+    # q5table()

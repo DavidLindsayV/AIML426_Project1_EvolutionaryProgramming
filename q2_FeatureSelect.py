@@ -251,12 +251,3 @@ if __name__ == '__main__':
 
     else:
         print('You need to input the path to the folder the GA is to run feature selection on, and then whether to use wrapper-based GA (W) or filter-based GA (F)')
-
-#TODO
-# - check this works for discrete features too
-# - ensure your code clearly has all the 3 requirements (listed below) met for both Filter and Wrapper
-    # - 1 Feature selection that selects a feature subset from a given dataset. 
-    # - 2. Data transformation that takes the original dataset and the selected features, and creates a new dataset with only the selected features (the corresponding subset of columns).
-    # - 3. Classification that trains a model to classify the instances of a given dataset (the original or that with only the selected features).
-# - have both FilterGA and WrapperGA chosen by command line arguments
-# - complete filter-based fitness func

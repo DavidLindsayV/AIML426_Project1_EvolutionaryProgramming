@@ -34,10 +34,22 @@ def generate_primitive_set():
     pset.addEphemeralConstant("rand101", partial(random.randint, -5, 5))
     return pset
 
+def calcMSE(individuals, num_train_cases):
+    indiv1 = individuals[0]
+    indiv2 = individuals[1]
+    # Transform the tree expression in a callable function
+    func1 = toolbox.compile(expr=indiv1)
+    func2 = toolbox.compile(expr=indiv2)
+    # Evaluate the mean squared error between the expression and the real function
+    sqerrors1 = ((func1(x) - target_function(x)) ** 2 for x in np.random.uniform(-100.0, 0, num_train_cases))
+    sqerrors2 = ((func2(x) - target_function(x)) ** 2 for x in np.random.uniform(0, 100.0, num_train_cases))
+    return (math.fsum(sqerrors1) / num_train_cases + math.fsum(sqerrors2) / num_train_cases,)
 
 def CoopEA(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+
     num_train_cases = 100 #100 data inputs generated for evaluation
-    num_test_cases = 100 
 
     pset = generate_primitive_set()
 
@@ -52,19 +64,7 @@ def CoopEA(seed):
     toolbox.register("compile", gp.compile, pset=pset)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-
-    def calcMSE(individuals):
-        indiv1 = individuals[0]
-        indiv2 = individuals[1]
-        # Transform the tree expression in a callable function
-        func1 = toolbox.compile(expr=indiv1)
-        func2 = toolbox.compile(expr=indiv2)
-        # Evaluate the mean squared error between the expression and the real function
-        sqerrors1 = ((func1(x) - target_function(x)) ** 2 for x in np.random.uniform(-100.0, 0, num_train_cases))
-        sqerrors2 = ((func2(x) - target_function(x)) ** 2 for x in np.random.uniform(0, 100.0, num_train_cases))
-        return (math.fsum(sqerrors1) / num_train_cases + math.fsum(sqerrors2) / num_train_cases,)
-
-    toolbox.register("evaluate", calcMSE)
+    toolbox.register("evaluate", calcMSE, num_train_cases=num_train_cases)
     toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", gp.cxOnePoint)
     toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
@@ -84,21 +84,10 @@ def CoopEA(seed):
 
     toolbox.register("get_best", get_best)
 
-
-    random.seed(seed)
-
-    species, representatives, mses = evolvePopulation()
+    species, representatives, mses = evolvePopulation(seed)
 
     # func = toolbox.compile(expr=indiv)
-    print("When less than 0: " + str(representatives[0]))
-    print("When greater than 0: " + str(representatives[1]))
-    print("MSE over " + str(num_test_cases) + " test cases = " +  str(calcMSE(representatives)[0]))
-
-    print("Actual function: ")
-    print("Less than 0: add(add(mul(2, x), mul(x, x)), 3)")
-    print("Greater than 0: add(protectedDiv(1.0, x), sin(x))")
-
-    plot_MSE(mses)
+    return species, representatives, mses
 
 toolbox = None
 
@@ -126,12 +115,14 @@ def plot_MSE(MSE):
     # Show the plot
     plt.show()
 
-def evolvePopulation():
+def evolvePopulation(seed):
+    random.seed(seed)
+
     global toolbox
     populationSize = 300
     numEpochs = 40
     crossoverProb = 0.6
-    mutationProb = 1.0
+    mutationProb = 0.5
 
     species = [toolbox.population(populationSize) for _ in range(2)]
     # print(species)
@@ -161,9 +152,17 @@ def evolvePopulation():
 
             # Select the individuals
             species[speciesIndex] = toolbox.select(s, len(s))  # Tournament selection
-            next_repr[speciesIndex] = toolbox.get_best(s)   # Best selection
+            #If the new best is better, use that as the representative
+            if toolbox.get_best(s).fitness.values < representatives[speciesIndex].fitness.values:
+                next_repr[speciesIndex] = toolbox.get_best(s)   # Best selection
+            else:
+                next_repr[speciesIndex] = representatives[speciesIndex]
 
         representatives = next_repr
+        #Update the fitness values of the representatives
+        for ind in representatives:
+            ind.fitness.values = toolbox.evaluate(representatives)
+
         mses.append(toolbox.evaluate(representatives))
         print("Representatives MSE: " + str(mses[-1]))
 
@@ -171,7 +170,17 @@ def evolvePopulation():
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
+        num_test_cases = 100
         random_seed = 100
-        SymbolicRegression(random_seed)
+        species, representatives, mses = CoopEA(random_seed)
+        print("When less than 0: " + str(representatives[0]))
+        print("When greater than 0: " + str(representatives[1]))
+        print("MSE over " + str(num_test_cases) + " test cases = " +  str(calcMSE(representatives, num_test_cases)[0]))
+
+        print("Actual function: ")
+        print("Less than 0: add(add(mul(2, x), mul(x, x)), 3)")
+        print("Greater than 0: add(protectedDiv(1.0, x), sin(x))")
+
+        plot_MSE(mses)
     else:
         print('You need no extra cmd arguments')
