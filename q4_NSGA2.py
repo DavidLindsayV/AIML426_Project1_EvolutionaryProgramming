@@ -191,7 +191,7 @@ def wrapper_objective(individual): #use KNN as the wrapper
 
     features = select_features(individual, feature_values, class_values)
     if features is None: #if there are no features
-        return 0.0000000001
+        return 1 - 0.00000001
 
     X_train, X_test, y_train, y_test = train_test_split(features, class_values, test_size=0.3, random_state=42)
     knn = KNeighborsClassifier(n_neighbors=k)
@@ -221,7 +221,7 @@ def select_features(individual, feature_values, class_values):
 
 toolbox = None
 
-def make_toolbox():
+def make_toolbox(mutation_prob):
     creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
     creator.create("Individual", list, fitness=creator.FitnessMin)
 
@@ -235,29 +235,29 @@ def make_toolbox():
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
     toolbox.register("evaluate", fitnessFunction)
-    toolbox.register("mate", tools.cxTwoPoint)
+    toolbox.register("mate", tools.cxOnePoint)
 
-    def mutate_flip_bit(individual, indpb):
-        """Flip the bit of the individual with probability indpb."""
-        for i in range(len(individual)):
-            if random.random() < indpb:
-                individual[i] = 1 if individual[i] == 0 else 0
-        return individual,
+    def mutate_flip_bit(individual, mutation_prob):
+        if random.random() < mutation_prob:
+            flipindex = random.randint(0, len(individual) - 1)
+            individual[flipindex] = abs(individual[flipindex] - 1) #flip from 0 to 1 and vice versa
 
 
-    toolbox.register("mutate", mutate_flip_bit, indpb=1.0/NDIM)
+
+    toolbox.register("mutate", mutate_flip_bit, mutation_prob=mutation_prob)
     toolbox.register("select", tools.selNSGA2)
 
 def main(seed):
     random.seed(seed)
 
-    make_toolbox()
-
-    global toolbox
-
-    num_generations = 20 #250
+    num_generations = 20 
     populationCount = 100
     crossover_prob = 0.9
+    mutation_prob = 0.1
+
+    make_toolbox(mutation_prob)
+
+    global toolbox
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", numpy.mean, axis=0)
@@ -319,8 +319,8 @@ def display_NSGA2_results(pop, stats):
     obj2 = [fitnessFunction(ind)[1] for ind in front]
     front_objectives = list(zip(obj1, obj2))
     
-    print("Best accuracy: " + str(max(obj1)))
-    print("Best class count: " + str(max(obj2)))
+    print("Best accuracy: " + str(min(obj1)))
+    print("Best class count: " + str(min(obj2)))
 
     reference_point = np.array([1.1, 1.1])
     hv = hypervolume(front, reference_point)
@@ -334,11 +334,18 @@ def display_NSGA2_results(pop, stats):
     plt.ylabel("Percentage of features selected")
     plt.show()
 
+global classes, featureNames, data, iscontinuous, discreteOptions, class_values, feature_values
+
+def set_global_vars(my_classes, my_featureNames, my_data, my_iscontinuous, my_discreteOptions, my_class_values, my_feature_values):
+    global classes, featureNames, data, iscontinuous, discreteOptions, class_values, feature_values
+    classes, featureNames, data, iscontinuous, discreteOptions, class_values, feature_values  = my_classes, my_featureNames, my_data, my_iscontinuous, my_discreteOptions, my_class_values, my_feature_values 
+
 if __name__ == "__main__":
     if len(sys.argv) == 2:
+        seed = 100
         classes, featureNames, data, iscontinuous, discreteOptions, class_values, feature_values = process_file(sys.argv[1])
         starttime = datetime.datetime.now()
-        pop, stats = main()
+        pop, stats = main(seed)
         print("Time taken: " + str(datetime.datetime.now() - starttime))
         display_NSGA2_results(pop, stats)
     else:

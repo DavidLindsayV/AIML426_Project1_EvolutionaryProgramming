@@ -2,10 +2,13 @@ from datetime import datetime
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
+from deap import tools
+from deap.benchmarks.tools import hypervolume
 
 import q1_Knapsack
 import q2_FeatureSelect
 import q3_SymbolicRegression
+import q4_NSGA2
 
 
 def make_table(data, column_labels, row_labels):
@@ -165,7 +168,57 @@ def q3table():
     else:
         print('You don\'t need cmd arguments')
 
+def q4table():
+    if len(sys.argv) == 2:
+
+        classes, featureNames, data, iscontinuous, discreteOptions, class_values, feature_values = q4_NSGA2.process_file(sys.argv[1])
+        q4_NSGA2.set_global_vars(classes, featureNames, data, iscontinuous, discreteOptions, class_values, feature_values)
+        
+        data = []
+        fronts = []
+
+        seeds = [100, 200, 300]
+
+        for seed in seeds:
+            pop, stats = q4_NSGA2.main(seed)
+
+            pop.sort(key=lambda x: x.fitness.values)
+            front = tools.sortNondominated(pop, len(pop), first_front_only=True)[0]
+            reference_point = np.array([1.1, 1.1])
+            hv = hypervolume(front, reference_point)
+            data.append([hv])
+            print(front)
+            fronts.append(front)
+        
+        column_labels = ["Hypervolume"]
+        row_labels = ['', '', '', 'Mean', 'Std']
+
+        hv = [row[0] for row in data]
+        # num_nodes = [row[1] for row in data]
+        data.append([round(np.mean(hv), 2)])
+        data.append([round(np.std(hv), 2)])
+
+        make_table(data, column_labels, row_labels)
+
+        for i, front in enumerate(fronts):
+            obj1 = [q4_NSGA2.fitnessFunction(ind)[0] for ind in front]
+            obj2 = [q4_NSGA2.fitnessFunction(ind)[1] for ind in front]
+            print("Best error rate on run " + str(i+1) + ": " + str(min(obj1)))
+            plt.figure()
+            plt.scatter(obj1, obj2)
+            plt.title("Pareto Front - run " + str(i+1))
+            plt.xlabel("Accuracy Loss (percentage of incorrect identifications)")
+            plt.ylabel("Percentage of features selected")
+
+        all_features_indiv = [1 for x in range(len(featureNames))]
+        print("Accuracy if using all features: " + str(q4_NSGA2.fitnessFunction(all_features_indiv)[0]))
+
+        plt.show()
+    else:
+        print("Need another CMD argument, the path to the folder containing data to perform NSGA2 on")
+
 if __name__ == '__main__':
     # q1table()
     # q2table()
-    q3table()
+    # q3table()
+    q4table()
